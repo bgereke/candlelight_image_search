@@ -27,12 +27,12 @@ setup(
     author_email='bgereke@utexas.edu',
     url='https://github.com/bgereke/candlelight_image_search',
     packages=find_packages(exclude=()),
-    # install_requires=requirements,
+    install_requires=requirements,
     classifiers=[
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.8',
     'License :: OSI Approved :: BSD License',
     'Operating System :: Linux Ubuntu 16.04',
     ],
-    python_requires='>=3.8'
+    python_requires='>=3.6'
     )

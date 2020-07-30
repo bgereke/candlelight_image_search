@@ -1,5 +1,6 @@
 import pretrainedmodels
 import torch.nn as nn
+from torch.utils.checkpoint import checkpoint_sequential
 
 
 class EmbeddedFeatureWrapper(nn.Module):
@@ -9,9 +10,11 @@ class EmbeddedFeatureWrapper(nn.Module):
     def __init__(self,
                  feature,
                  input_dim,
-                 output_dim):
+                 output_dim,
+                 chunks=2):
         super(EmbeddedFeatureWrapper, self).__init__()
 
+        self.chunks = chunks
         self.feature = feature
         self.pool = nn.AdaptiveAvgPool2d(1)
         self.standardize = nn.LayerNorm(input_dim, elementwise_affine=False)
@@ -21,6 +24,7 @@ class EmbeddedFeatureWrapper(nn.Module):
             self.remap = nn.Linear(input_dim, output_dim, bias=False)
 
     def forward(self, images):
+        # x = checkpoint_sequential(self.feature, self.chunks, images)
         x = self.feature(images)
         x = self.pool(x)
         x = x.view(x.size(0), -1)

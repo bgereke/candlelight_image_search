@@ -12,6 +12,7 @@ from pretrainedmodels.utils import ToSpaceBGR
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
+from torch.utils.tensorboard import SummaryWriter
 
 from data.inshop import InShop
 from data.stanford_products import StanfordOnlineProducts
@@ -74,10 +75,12 @@ def main(args):
         os.makedirs(output_directory)
     out_log = os.path.join(output_directory, "train.log")
     sys.stdout = SimpleLogger(out_log, sys.stdout)
+    writer = SummaryWriter()
 
     # Select model
     model_factory = getattr(featurizer, args.model_name)
     model = model_factory(args.dim)
+    writer.add_graph(model, torch.rand([1, 3, 256, 256]))
 
     # Setup train and eval transformations
     train_transform = transforms.Compose([
@@ -182,7 +185,7 @@ def main(args):
             forward = time.time()
             embedding = model(im)
             loss = loss_fn(embedding, instance_label)
-
+            writer.add_scalar('loss', loss, args.pretrain_epochs - epoch)
             back = time.time()
             loss.backward()
             opt.step()
@@ -199,12 +202,23 @@ def main(args):
         eval_file = os.path.join(output_directory, 'epoch_{}'.format(args.pretrain_epochs - epoch))
         if args.dataset != "InShop":
             embeddings, labels = extract_feature(model, eval_loader, gpu_device)
-            evaluate_float_binary_embedding_faiss(embeddings, embeddings, labels, labels, eval_file, k=1000, gpu_id=0)
+            r_at_one = evaluate_float_binary_embedding_faiss(embeddings, embeddings,
+                                                             labels, labels,
+                                                             eval_file,
+                                                             k=1000,
+                                                             gpu_id=0)
+            writer.add_scalar('recall@1', r_at_one, args.pretrain_epochs - epoch)
         else:
             query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
             index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
-            evaluate_float_binary_embedding_faiss(query_embeddings, index_embeddings, query_labels, index_labels, eval_file,
-                                                  k=1000, gpu_id=0)
+            r_at_one = evaluate_float_binary_embedding_faiss(query_embeddings,
+                                                             index_embeddings,
+                                                             query_labels,
+                                                             index_labels,
+                                                             eval_file,
+                                                             k=1000,
+                                                             gpu_id=0)
+            writer.add_scalar('recall@1', r_at_one, args.pretrain_epochs - epoch)
 
     # Full end-to-end finetune of all parameters
     opt = torch.optim.SGD(chain(model.parameters(), loss_fn.parameters()), lr=args.lr, momentum=0.9, weight_decay=1e-4)
@@ -223,7 +237,7 @@ def main(args):
             forward = time.time()
             embedding = model(im)
             loss = loss_fn(embedding, instance_label)
-
+            writer.add_scalar('loss', loss, epoch)
             back = time.time()
             loss.backward()
             opt.step()
@@ -243,13 +257,25 @@ def main(args):
             eval_file = os.path.join(output_directory, 'epoch_{}'.format(epoch + 1))
             if args.dataset != "InShop":
                 embeddings, labels = extract_feature(model, eval_loader, gpu_device)
-                evaluate_float_binary_embedding_faiss(embeddings, embeddings, labels, labels, eval_file, k=1000, gpu_id=0)
+                r_at_one = evaluate_float_binary_embedding_faiss(embeddings,
+                                                                 embeddings,
+                                                                 labels,
+                                                                 labels,
+                                                                 eval_file,
+                                                                 k=1000,
+                                                                 gpu_id=0)
+                writer.add_scalar('recall@1', r_at_one, epoch)
             else:
                 query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
                 index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
-                evaluate_float_binary_embedding_faiss(query_embeddings, index_embeddings, query_labels, index_labels,
-                                                      eval_file,
-                                                      k=1000, gpu_id=0)
+                r_at_one = evaluate_float_binary_embedding_faiss(query_embeddings,
+                                                                 index_embeddings,
+                                                                 query_labels,
+                                                                 index_labels,
+                                                                 eval_file,
+                                                                 k=1000,
+                                                                 gpu_id=0)
+                writer.add_scalar('recall@1', r_at_one, epoch)
 
 if __name__ == '__main__':
     args = parse_args().parse_args()

@@ -67,4 +67,7 @@ target/
 #PyCharm
 .idea
 .idea/
-*.idea
+*.idea/
+
+#tensorboard
+runs/
