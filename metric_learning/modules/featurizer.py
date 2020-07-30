@@ -1,5 +1,6 @@
 import pretrainedmodels
 import torch.nn as nn
+import torch.hub as hub
 from torch.utils.checkpoint import checkpoint_sequential
 
 
@@ -45,8 +46,8 @@ def resnet50(output_dim):
     """
     resnet50 variant with `output_dim` embedding output size.
     """
-    basemodel = pretrainedmodels.__dict__["resnet50"](num_classes=1000)
-
+    # basemodel = pretrainedmodels.__dict__["resnet50"](num_classes=1000)
+    basemodel = hub.load('pytorch/vision:v0.6.0', 'resnet50', pretrained=True)
     model = nn.Sequential(
         basemodel.conv1,
         basemodel.bn1,
@@ -60,10 +61,60 @@ def resnet50(output_dim):
     )
     model.name = "resnet50"
     featurizer = EmbeddedFeatureWrapper(feature=model, input_dim=2048, output_dim=output_dim)
-    featurizer.input_space = basemodel.input_space
-    featurizer.input_range = basemodel.input_range
-    featurizer.input_size = basemodel.input_size
-    featurizer.std = basemodel.std
-    featurizer.mean = basemodel.mean
+    featurizer.input_space = 'RGB'
+    featurizer.input_range = [0, 1]
+    featurizer.input_size = [3, 224, 224]
+    featurizer.std = [0.229, 0.224, 0.225]
+    featurizer.mean = [0.485, 0.456, 0.406]
+
+    return featurizer
+
+def se_resnext101_32x4d(output_dim):
+    """
+    se_resnext101_32x4d variant with `output_dim` embedding output size.
+    """
+    basemodel = pretrainedmodels.__dict__["se_resnext101_32x4d"](num_classes=1000)
+
+    model = nn.Sequential(
+        basemodel.layer0,
+        basemodel.layer1,
+        basemodel.layer2,
+        basemodel.layer3,
+        basemodel.layer4
+    )
+    model.name = "se_resnext101_32x4d"
+    featurizer = EmbeddedFeatureWrapper(feature=model, input_dim=2048, output_dim=output_dim)
+    featurizer.input_space = 'RGB'
+    featurizer.input_range = [0, 1]
+    featurizer.input_size = [3, 224, 224]
+    featurizer.std = [0.229, 0.224, 0.225]
+    featurizer.mean = [0.485, 0.456, 0.406]
+
+    return featurizer
+
+def resnest50(output_dim):
+    """
+    resnest50 variant with `output_dim` embedding output size.
+    """
+    basemodel = hub.load('zhanghang1989/ResNeSt', 'resnest50', pretrained=True)
+
+    model = nn.Sequential(
+        basemodel.conv1,
+        basemodel.bn1,
+        basemodel.relu,
+        basemodel.maxpool,
+
+        basemodel.layer1,
+        basemodel.layer2,
+        basemodel.layer3,
+        basemodel.layer4
+    )
+    model.name = "resnest50"
+    featurizer = EmbeddedFeatureWrapper(feature=model, input_dim=2048, output_dim=output_dim)
+    featurizer.input_space = 'RGB'
+    featurizer.input_range = [0, 1]
+    featurizer.input_size = [3,224,224]
+    featurizer.std = [0.229, 0.224, 0.225]
+    featurizer.mean = [0.485, 0.456, 0.406]
 
     return featurizer

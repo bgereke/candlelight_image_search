@@ -185,7 +185,7 @@ def main(args):
             forward = time.time()
             embedding = model(im)
             loss = loss_fn(embedding, instance_label)
-            writer.add_scalar('loss', loss, args.pretrain_epochs - epoch)
+            writer.add_scalar('loss', loss, epoch)
             back = time.time()
             loss.backward()
             opt.step()
@@ -207,7 +207,7 @@ def main(args):
                                                              eval_file,
                                                              k=1000,
                                                              gpu_id=0)
-            writer.add_scalar('recall@1', r_at_one, args.pretrain_epochs - epoch)
+            writer.add_scalar('recall@1', r_at_one, epoch)
         else:
             query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
             index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
@@ -218,7 +218,7 @@ def main(args):
                                                              eval_file,
                                                              k=1000,
                                                              gpu_id=0)
-            writer.add_scalar('recall@1', r_at_one, args.pretrain_epochs - epoch)
+            writer.add_scalar('recall@1', r_at_one, epoch)
 
     # Full end-to-end finetune of all parameters
     opt = torch.optim.SGD(chain(model.parameters(), loss_fn.parameters()), lr=args.lr, momentum=0.9, weight_decay=1e-4)
@@ -237,7 +237,7 @@ def main(args):
             forward = time.time()
             embedding = model(im)
             loss = loss_fn(embedding, instance_label)
-            writer.add_scalar('loss', loss, epoch)
+            writer.add_scalar('loss', loss, epoch + args.pretrain_epochs)
             back = time.time()
             loss.backward()
             opt.step()
@@ -264,7 +264,7 @@ def main(args):
                                                                  eval_file,
                                                                  k=1000,
                                                                  gpu_id=0)
-                writer.add_scalar('recall@1', r_at_one, epoch)
+                writer.add_scalar('recall@1', r_at_one, epoch + args.pretrain_epochs)
             else:
                 query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
                 index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
@@ -275,7 +275,7 @@ def main(args):
                                                                  eval_file,
                                                                  k=1000,
                                                                  gpu_id=0)
-                writer.add_scalar('recall@1', r_at_one, epoch)
+                writer.add_scalar('recall@1', r_at_one, epoch + args.pretrain_epochs)
 
 if __name__ == '__main__':
     args = parse_args().parse_args()
