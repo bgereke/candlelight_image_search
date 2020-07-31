@@ -25,7 +25,7 @@ from metric_learning.modules import featurizer
 from metric_learning.modules import losses
 
 from metric_learning.extract_features import extract_feature
-from evaluation.retrieval import evaluate_float_binary_embedding_faiss
+from evaluation.retrieval import get_retrieval_results
 
 
 def parse_args():
@@ -46,12 +46,13 @@ def parse_args():
     parser.add_argument("--images_per_class", type=int, default=5, help="Images per class")
     parser.add_argument("--lr_mult", type=float, default=1, help="lr_mult for new params")
     parser.add_argument("--dim", type=int, default=2048, help="The dimension of the embedding")
-
+    parser.add_argument("--max_predictions", type=int, default=100, help="The maximum number of images to return")
     parser.add_argument("--test_every_n_epochs", type=int, default=2, help="Tests every N epochs")
     parser.add_argument("--epochs_per_step", type=int, default=4, help="Epochs for learning rate step")
     parser.add_argument("--pretrain_epochs", type=int, default=1, help="Epochs for pretraining")
     parser.add_argument("--num_steps", type=int, default=3, help="Num steps to take")
-    parser.add_argument("--output", type=str, default="/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/output", help="The output folder for training")
+    parser.add_argument("--output", type=str, default="/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/output",
+                        help="The output folder for training")
 
     return parser
 
@@ -80,7 +81,7 @@ def main(args):
     # Select model
     model_factory = getattr(featurizer, args.model_name)
     model = model_factory(args.dim)
-    writer.add_graph(model, torch.rand([1, 3, 256, 256]))
+    # writer.add_graph(model, torch.rand([1, 3, 256, 256]))
 
     # Setup train and eval transformations
     train_transform = transforms.Compose([
@@ -103,21 +104,28 @@ def main(args):
 
     # Setup dataset
     if args.dataset == 'StanfordOnlineProducts':
-        train_dataset = StanfordOnlineProducts('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/stanford_products/Stanford_Online_Products',
-                                               transform=train_transform)
-        eval_dataset = StanfordOnlineProducts('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/stanford_products/Stanford_Online_Products',
-                                              train=False,
-                                              transform=eval_transform)
+        train_dataset = StanfordOnlineProducts(
+            '/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/stanford_products/Stanford_Online_Products',
+            transform=train_transform)
+        eval_dataset = StanfordOnlineProducts(
+            '/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/stanford_products/Stanford_Online_Products',
+            train=False,
+            transform=eval_transform)
     elif args.dataset == 'Cars196':
         train_dataset = Cars196("/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cars196", transform=train_transform)
-        eval_dataset = Cars196('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cars196', train=False, transform=eval_transform)
+        eval_dataset = Cars196('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cars196', train=False,
+                               transform=eval_transform)
     elif args.dataset == 'Cub200':
-        train_dataset = Cub200('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cub200/CUB_200_2011', transform=train_transform)
-        eval_dataset = Cub200('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cub200/CUB_200_2011', train=False, transform=eval_transform)
+        train_dataset = Cub200('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cub200/CUB_200_2011',
+                               transform=train_transform)
+        eval_dataset = Cub200('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/cub200/CUB_200_2011', train=False,
+                              transform=eval_transform)
     elif args.dataset == "InShop":
         train_dataset = InShop('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/inshop', transform=train_transform)
-        query_dataset = InShop('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/inshop', train=False, query=True, transform=eval_transform)
-        index_dataset = InShop('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/inshop', train=False, query=False, transform=eval_transform)
+        query_dataset = InShop('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/inshop', train=False, query=True,
+                               transform=eval_transform)
+        index_dataset = InShop('/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/inshop', train=False, query=False,
+                               transform=eval_transform)
     else:
         print(("Dataset {} is not supported yet... Abort".format(args.dataset)))
         return
@@ -127,8 +135,11 @@ def main(args):
         print("Class Balancing")
         sampler = ClassBalancedBatchSampler(train_dataset.instance_labels, args.batch_size, args.images_per_class)
         train_loader = DataLoader(train_dataset,
-                                  batch_sampler=sampler, num_workers=4,
-                                  pin_memory=True, drop_last=False, collate_fn=default_collate)
+                                  batch_sampler=sampler,
+                                  num_workers=4,
+                                  pin_memory=True,
+                                  drop_last=False,
+                                  collate_fn=default_collate)
     else:
         print("No class balancing")
         train_loader = DataLoader(train_dataset,
@@ -198,27 +209,36 @@ def main(args):
 
                 print(('Data: {}\tForward: {}\tBackward: {}\tBatch: {}'.format(
                     forward - data, back - forward, end - back, end - forward)))
+            writer.add_scalar('embedding time', back - forward, epoch)
 
         eval_file = os.path.join(output_directory, 'epoch_{}'.format(args.pretrain_epochs - epoch))
         if args.dataset != "InShop":
             embeddings, labels = extract_feature(model, eval_loader, gpu_device)
-            r_at_one = evaluate_float_binary_embedding_faiss(embeddings, embeddings,
-                                                             labels, labels,
-                                                             eval_file,
-                                                             k=1000,
-                                                             gpu_id=0)
-            writer.add_scalar('recall@1', r_at_one, epoch)
+            results = get_retrieval_results(embeddings, embeddings,
+                                            labels, labels,
+                                            eval_file,
+                                            k=100,
+                                            gpu_id=0)
+            writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch)
+            writer.add_scalar('map', results['float']['map'], epoch)
+            writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch)
+            writer.add_scalar('mean_position', results['float']['mean_position'], epoch)
+            writer.add_scalar('median_position', results['float']['median_position'], epoch)
         else:
             query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
             index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
-            r_at_one = evaluate_float_binary_embedding_faiss(query_embeddings,
-                                                             index_embeddings,
-                                                             query_labels,
-                                                             index_labels,
-                                                             eval_file,
-                                                             k=1000,
-                                                             gpu_id=0)
-            writer.add_scalar('recall@1', r_at_one, epoch)
+            results = get_retrieval_results(query_embeddings,
+                                            index_embeddings,
+                                            query_labels,
+                                            index_labels,
+                                            eval_file,
+                                            k=100,
+                                            gpu_id=0)
+            writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch)
+            writer.add_scalar('map', results['float']['map'], epoch)
+            writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch)
+            writer.add_scalar('mean_position', results['float']['mean_position'], epoch)
+            writer.add_scalar('median_position', results['float']['median_position'], epoch)
 
     # Full end-to-end finetune of all parameters
     opt = torch.optim.SGD(chain(model.parameters(), loss_fn.parameters()), lr=args.lr, momentum=0.9, weight_decay=1e-4)
@@ -249,6 +269,7 @@ def main(args):
                     epoch, opt.param_groups[0]['lr'], i, len(train_loader), loss.item())))
                 print(('Data: {}\tForward: {}\tBackward: {}\tBatch: {}'.format(
                     forward - data, back - forward, end - back, end - data)))
+            writer.add_scalar('embedding time', back-forward, epoch)
 
         snapshot_path = os.path.join(output_directory, 'epoch_{}.pth'.format(epoch + 1))
         torch.save(model.state_dict(), snapshot_path)
@@ -257,25 +278,32 @@ def main(args):
             eval_file = os.path.join(output_directory, 'epoch_{}'.format(epoch + 1))
             if args.dataset != "InShop":
                 embeddings, labels = extract_feature(model, eval_loader, gpu_device)
-                r_at_one = evaluate_float_binary_embedding_faiss(embeddings,
-                                                                 embeddings,
-                                                                 labels,
-                                                                 labels,
-                                                                 eval_file,
-                                                                 k=1000,
-                                                                 gpu_id=0)
-                writer.add_scalar('recall@1', r_at_one, epoch + args.pretrain_epochs)
-            else:
-                query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
-                index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
-                r_at_one = evaluate_float_binary_embedding_faiss(query_embeddings,
-                                                                 index_embeddings,
-                                                                 query_labels,
-                                                                 index_labels,
-                                                                 eval_file,
-                                                                 k=1000,
-                                                                 gpu_id=0)
-                writer.add_scalar('recall@1', r_at_one, epoch + args.pretrain_epochs)
+                results = get_retrieval_results(embeddings, embeddings,
+                                                labels, labels,
+                                                eval_file,
+                                                k=100,
+                                                gpu_id=0)
+                writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch)
+                writer.add_scalar('map', results['float']['map'], epoch)
+                writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch)
+                writer.add_scalar('mean_position', results['float']['mean_position'], epoch)
+                writer.add_scalar('median_position', results['float']['median_position'], epoch)
+    else:
+        query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
+        index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
+        results = get_retrieval_results(query_embeddings,
+                                        index_embeddings,
+                                        query_labels,
+                                        index_labels,
+                                        eval_file,
+                                        k=100,
+                                        gpu_id=0)
+        writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch)
+        writer.add_scalar('map', results['float']['map'], epoch)
+        writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch)
+        writer.add_scalar('mean_position', results['float']['mean_position'], epoch)
+        writer.add_scalar('median_position', results['float']['median_position'], epoch)
+
 
 if __name__ == '__main__':
     args = parse_args().parse_args()
