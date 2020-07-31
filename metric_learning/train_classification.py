@@ -204,14 +204,14 @@ def main(args):
             end = time.time()
 
             if (i + 1) % log_every_n_step == 0:
-                print(('Epoch {}, LR {}, Iteration {} / {}:\t{}'.format(
-                    args.pretrain_epochs - epoch, opt.param_groups[0]['lr'], i, len(train_loader), loss.item())))
+                print(('Pretrain Epoch {}, LR {}, Iteration {} / {}:\t{}'.format(
+                    epoch, opt.param_groups[0]['lr'], i, len(train_loader), loss.item())))
 
                 print(('Data: {}\tForward: {}\tBackward: {}\tBatch: {}'.format(
                     forward - data, back - forward, end - back, end - forward)))
             writer.add_scalar('embedding time', back - forward, epoch)
 
-        eval_file = os.path.join(output_directory, 'epoch_{}'.format(args.pretrain_epochs - epoch))
+        eval_file = os.path.join(output_directory, 'pretrain epoch_{}'.format(epoch))
         if args.dataset != "InShop":
             embeddings, labels = extract_feature(model, eval_loader, gpu_device)
             results = get_retrieval_results(embeddings, embeddings,
@@ -266,10 +266,10 @@ def main(args):
 
             if (i + 1) % log_every_n_step == 0:
                 print(('Epoch {}, LR {}, Iteration {} / {}:\t{}'.format(
-                    epoch, opt.param_groups[0]['lr'], i, len(train_loader), loss.item())))
+                    epoch + len(args.pretrain_epochs), opt.param_groups[0]['lr'], i, len(train_loader), loss.item())))
                 print(('Data: {}\tForward: {}\tBackward: {}\tBatch: {}'.format(
                     forward - data, back - forward, end - back, end - data)))
-            writer.add_scalar('embedding time', back-forward, epoch)
+            writer.add_scalar('embedding time', back-forward, epoch+len(args.pretrain_epochs))
 
         snapshot_path = os.path.join(output_directory, 'epoch_{}.pth'.format(epoch + 1))
         torch.save(model.state_dict(), snapshot_path)
@@ -283,26 +283,24 @@ def main(args):
                                                 eval_file,
                                                 k=100,
                                                 gpu_id=0)
-                writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch)
-                writer.add_scalar('map', results['float']['map'], epoch)
-                writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch)
-                writer.add_scalar('mean_position', results['float']['mean_position'], epoch)
-                writer.add_scalar('median_position', results['float']['median_position'], epoch)
-    else:
-        query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
-        index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
-        results = get_retrieval_results(query_embeddings,
-                                        index_embeddings,
-                                        query_labels,
-                                        index_labels,
-                                        eval_file,
-                                        k=100,
-                                        gpu_id=0)
-        writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch)
-        writer.add_scalar('map', results['float']['map'], epoch)
-        writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch)
-        writer.add_scalar('mean_position', results['float']['mean_position'], epoch)
-        writer.add_scalar('median_position', results['float']['median_position'], epoch)
+                writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('map', results['float']['map'], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('mean_position', results['float']['mean_position'], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('median_position', results['float']['median_position'], epoch+len(args.pretrain_epochs))
+            else:
+                query_embeddings, query_labels = extract_feature(model, query_loader, gpu_device)
+                index_embeddings, index_labels = extract_feature(model, index_loader, gpu_device)
+                results = get_retrieval_results(query_embeddings, index_embeddings,
+                                                query_labels, index_labels,
+                                                eval_file,
+                                                k=100,
+                                                gpu_id=0)
+                writer.add_scalar('mean_precision@20', results['float']['mean_p_k'][20], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('map', results['float']['map'], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('recall_rate@1', results['float']['rr_at_k'][0], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('mean_position', results['float']['mean_position'], epoch+len(args.pretrain_epochs))
+                writer.add_scalar('median_position', results['float']['median_position'], epoch+len(args.pretrain_epochs))
 
 
 if __name__ == '__main__':
