@@ -33,7 +33,7 @@ def _retrieve_knn_faiss_gpu_inner_product(query_embeddings, db_embeddings, k, gp
     return retrieved_result_indices
 
 
-def _retrieve_knn_faiss_gpu_euclidean(query_embeddings, db_embeddings, k, gpu_id=0):
+def _retrieve_knn_faiss_gpu_binary(query_embeddings, db_embeddings, k, gpu_id=0):
     """
         Retrieve k nearest neighbor based on inner product
 
@@ -52,11 +52,11 @@ def _retrieve_knn_faiss_gpu_euclidean(query_embeddings, db_embeddings, k, gpu_id
     import faiss
 
     res = faiss.StandardGpuResources()
-    flat_config = faiss.GpuIndexFlatConfig()
+    flat_config = faiss.GpuIndexBinaryFlatConfig()
     flat_config.device = gpu_id
 
     # Evaluate with inner product
-    index = faiss.GpuIndexFlatL2(res, db_embeddings.shape[1], flat_config)
+    index = faiss.GpuIndexBinaryFlat(res, 2048, flat_config)
     index.add(db_embeddings)
     # retrieved k+1 results in case that query images are also in the db
     dists, retrieved_result_indices = index.search(query_embeddings, k + 1)
@@ -65,54 +65,41 @@ def _retrieve_knn_faiss_gpu_euclidean(query_embeddings, db_embeddings, k, gpu_id
 
 
 def get_retrieval_results(query_embeddings, db_embeddings, query_labels, db_labels,
-                          output, k=100, gpu_id=0):
-    retrieval_results = {'float': {},
-                         'binary': {}}
+                          k=100, gpu_id=0, binary=True):
+    retrieval_results = {}
 
     # get solution dict
     solutions = metrics.get_solution_dict(query_labels, db_labels)
 
-    # ======================== float embedding evaluation ==========================================================
-    # knn retrieval from embeddings (l2 normalized embedding + inner product = cosine similarity)
-    retrieved_result_indices = _retrieve_knn_faiss_gpu_inner_product(query_embeddings,
-                                                                     db_embeddings,
-                                                                     k,
-                                                                     gpu_id=gpu_id)
+    if binary:
+        # ======================== binary embedding evaluation =========================================================
+        binary_query_embeddings = np.packbits(np.require(query_embeddings > 0, dtype='uint8'), axis=1)
+        binary_db_embeddings = np.packbits(np.require(db_embeddings > 0, dtype='uint8'), axis=1)
+
+        # knn retrieval from embeddings (binary embeddings, hamming distance)
+        retrieved_result_indices = _retrieve_knn_faiss_gpu_binary(binary_query_embeddings,
+                                                                  binary_db_embeddings,
+                                                                  k,
+                                                                  gpu_id=gpu_id)
+    else:
+        # ======================== float embedding evaluation ==========================================================
+        # knn retrieval from embeddings (l2 normalized embedding + inner product = cosine similarity)
+        retrieved_result_indices = _retrieve_knn_faiss_gpu_inner_product(query_embeddings,
+                                                                         db_embeddings,
+                                                                         k,
+                                                                         gpu_id=gpu_id)
 
     # get prediction dict
     predictions = metrics.get_prediction_dict(retrieved_result_indices)
 
     # evaluate metrics
-    retrieval_results['float']['rr_at_k'] = metrics.recall_rate_at_k(retrieved_result_indices,
-                                                                     query_labels,
-                                                                     db_labels, k)
-    retrieval_results['float']['map'] = metrics.mean_average_precision(predictions, solutions, k)
-    retrieval_results['float']['mean_p_k'] = metrics.mean_precisions(predictions, solutions, k)
+    retrieval_results['rr_at_k'] = metrics.recall_rate_at_k(retrieved_result_indices,
+                                                            query_labels,
+                                                            db_labels, k)
+    retrieval_results['map'] = metrics.mean_average_precision(predictions, solutions, k)
+    retrieval_results['mean_p_k'] = metrics.mean_precisions(predictions, solutions, k)
     mean_position, median_position = metrics.mean_median_position(predictions, solutions, k)
-    retrieval_results['float']['mean_position'] = mean_position
-    retrieval_results['float']['median_position'] = median_position
-
-    # ======================== binary embedding evaluation =========================================================
-    binary_query_embeddings = np.require(query_embeddings > 0, dtype='float32')
-    binary_db_embeddings = np.require(db_embeddings > 0, dtype='float32')
-
-    # knn retrieval from embeddings (binary embeddings + euclidean = hamming distance)
-    retrieved_result_indices = _retrieve_knn_faiss_gpu_euclidean(binary_query_embeddings,
-                                                                 binary_db_embeddings,
-                                                                 k,
-                                                                 gpu_id=gpu_id)
-
-    # get prediction dict
-    prediction = metrics.get_prediction_dict(retrieved_result_indices)
-
-    # evaluate metrics
-    retrieval_results['binary']['rr_at_k'] = metrics.recall_rate_at_k(retrieved_result_indices,
-                                                                      query_labels,
-                                                                      db_labels, k)
-    retrieval_results['binary']['map'] = metrics.mean_average_precision(predictions, solutions, k)
-    retrieval_results['binary']['mean_p_k'] = metrics.mean_precisions(predictions, solutions, k)
-    mean_position, median_position = metrics.mean_median_position(predictions, solutions, k)
-    retrieval_results['binary']['mean_position'] = mean_position
-    retrieval_results['binary']['median_position'] = median_position
+    retrieval_results['mean_position'] = mean_position
+    retrieval_results['median_position'] = median_position
 
     return retrieval_results
