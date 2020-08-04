@@ -54,7 +54,7 @@ def parse_args():
     parser.add_argument("--output", type=str, default="/media/brian/00686ed3-5895-442b-a66e-15fbe9951a91/output",
                         help="The output folder for training")
     parser.add_argument("--batches_per_epoch", type=int, default=500, help="number of batches to train each epoch")
-    parser.add_argument("--eval_class_prop", type=int, default=0.5,
+    parser.add_argument("--eval_class_prop", type=float, default=0.5,
                         help="proportion of test classes to use during evaluation")
 
     return parser
@@ -137,7 +137,6 @@ def main(args):
     if args.class_balancing:
         print("Class Balancing")
         train_sampler = ClassBalancedBatchSampler(train_dataset.instance_labels, args.batch_size, args.images_per_class)
-        eval_sampler = ClassBatchSubsampler(train_dataset.instance_labels, args.batch_size, args.eval_class_prop)
         train_loader = DataLoader(dataset=train_dataset,
                                   batch_sampler=train_sampler,
                                   num_workers=4,
@@ -147,12 +146,14 @@ def main(args):
     else:
         print("No class balancing")
         train_loader = DataLoader(dataset=train_dataset,
-                                  batch_sampler=eval_sampler,
+                                  batch_size=args.batch_size,
+                                  shuffle=True,
                                   drop_last=False,
                                   pin_memory=True,
                                   num_workers=4)
 
     if args.dataset != "InShop":
+        eval_sampler = ClassBatchSubsampler(train_dataset.instance_labels, args.batch_size, args.eval_class_prop)
         eval_loader = DataLoader(dataset=eval_dataset,
                                  batch_sampler=eval_sampler,
                                  drop_last=False,
@@ -160,13 +161,13 @@ def main(args):
                                  num_workers=4)
     else:
         query_loader = DataLoader(dataset=query_dataset,
-                                  batch_sampler=eval_sampler,
-                                  drop_last=False,
+                                  batch_size=args.batch_size,
+                                  shuffle=True,
                                   pin_memory=True,
                                   num_workers=4)
         index_loader = DataLoader(dataset=index_dataset,
-                                  batch_sampler=eval_sampler,
-                                  drop_last=False,
+                                  batch_size=args.batch_size,
+                                  shuffle=True,
                                   pin_memory=True,
                                   num_workers=4)
 
@@ -211,7 +212,7 @@ def main(args):
 
                 print(('Data: {}\tForward: {}\tBackward: {}\tBatch: {}'.format(
                     forward - data, back - forward, end - back, end - forward)))
-            writer.add_scalar('embedding time', back - forward, epoch)
+            writer.add_scalar('embedding time', (back - forward)/len(im), epoch)
 
         eval_file = os.path.join(output_directory, 'pretrain epoch_{}'.format(epoch))
         if args.dataset != "InShop":
@@ -272,7 +273,7 @@ def main(args):
                     epoch + args.pretrain_epochs, opt.param_groups[0]['lr'], i, batches_per_epoch, loss.item())))
                 print(('Data: {}\tForward: {}\tBackward: {}\tBatch: {}'.format(
                     forward - data, back - forward, end - back, end - data)))
-            writer.add_scalar('embedding time', back-forward, epoch+args.pretrain_epochs)
+            writer.add_scalar('embedding time', (back-forward)/len(im), epoch+args.pretrain_epochs)
 
         snapshot_path = os.path.join(output_directory, 'epoch_{}.pth'.format(epoch + 1))
         torch.save(model.state_dict(), snapshot_path)

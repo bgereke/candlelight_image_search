@@ -48,7 +48,7 @@ class ClassBalancedBatchSampler(object):
 
 class ClassBatchSubsampler(object):
     """
-    BatchSampler that ensures a fixed amount of images per class are sampled in the minibatch
+    BatchSampler that subsamples a proportion of the total classes
     """
     def __init__(self, targets, batch_size, class_prop, ignore_index=None):
         self.targets = targets
@@ -63,7 +63,7 @@ class ClassBatchSubsampler(object):
         self.subsampled_indices = []
         for cls in sampled_classes:
             self.subsampled_indices.extend(self.reverse_index[cls])
-        self.batch = 0
+        self.batch = -1
 
     def __iter__(self):
         for _ in range(len(self)):
@@ -83,7 +83,10 @@ class ClassBatchSubsampler(object):
 
     def next_batch(self):
         self.batch += 1
-        return self.subsampled_indices[(self.batch*self.batch_size):((self.batch+1)*self.batch_size)]
+        if self.batch == len(self):
+            self.batch = 0
+        next_batch = self.subsampled_indices[(self.batch * self.batch_size):((self.batch + 1) * self.batch_size)]
+        return next_batch
 
     def __len__(self):
         return len(self.subsampled_indices) // self.batch_size

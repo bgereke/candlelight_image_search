@@ -51,13 +51,15 @@ def _retrieve_knn_faiss_gpu_binary(query_embeddings, db_embeddings, k, gpu_id=0)
     """
     import faiss
 
-    res = faiss.StandardGpuResources()
-    flat_config = faiss.GpuIndexBinaryFlatConfig()
-    flat_config.device = gpu_id
-
-    # Evaluate with inner product
-    index = faiss.GpuIndexBinaryFlat(res, 2048, flat_config)
+    # res = faiss.StandardGpuResources()
+    # flat_config = faiss.GpuIndexBinaryFlatConfig()
+    # flat_config.device = gpu_id
+    # index = faiss.GpuIndexBinaryFlat(res, 2048, flat_config)
+    # index.add(db_embeddings)
+    index = faiss.IndexBinaryFlat(2048)
     index.add(db_embeddings)
+
+
     # retrieved k+1 results in case that query images are also in the db
     dists, retrieved_result_indices = index.search(query_embeddings, k + 1)
 
