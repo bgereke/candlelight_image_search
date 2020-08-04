@@ -40,7 +40,50 @@ class ClassBalancedBatchSampler(object):
             sampled_indices.extend(np.random.choice(self.reverse_index[cls],
                                                     self.images_per_class,
                                                     replace=True))
+
         return sampled_indices
 
     def __len__(self):
         return len(self.targets) // self.batch_size
+
+class ClassBatchSubsampler(object):
+    """
+    BatchSampler that ensures a fixed amount of images per class are sampled in the minibatch
+    """
+    def __init__(self, targets, batch_size, class_prop, ignore_index=None):
+        self.targets = targets
+        self.batch_size = batch_size
+        self.class_prop = class_prop
+        self.ignore_index = ignore_index
+        self.reverse_index, self.ignored = self._build_reverse_index()
+        num_classes = int(np.ceil(len(set(self.reverse_index.keys())) * self.class_prop))
+        sampled_classes = np.random.choice(list(self.reverse_index.keys()),
+                                           num_classes,
+                                           replace=False)
+        self.subsampled_indices = []
+        for cls in sampled_classes:
+            self.subsampled_indices.extend(self.reverse_index[cls])
+        self.batch = 0
+
+    def __iter__(self):
+        for _ in range(len(self)):
+            yield self.next_batch()
+
+    def _build_reverse_index(self):
+        reverse_index = {}
+        ignored = []
+        for i, target in enumerate(self.targets):
+            if target == self.ignore_index:
+                ignored.append(i)
+                continue
+            if target not in reverse_index:
+                reverse_index[target] = []
+            reverse_index[target].append(i)
+        return reverse_index, ignored
+
+    def next_batch(self):
+        self.batch += 1
+        return self.subsampled_indices[(self.batch*self.batch_size):((self.batch+1)*self.batch_size)]
+
+    def __len__(self):
+        return len(self.subsampled_indices) // self.batch_size

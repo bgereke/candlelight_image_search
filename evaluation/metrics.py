@@ -85,11 +85,13 @@ def mean_average_precision(predictions, retrieval_solution, max_predictions=100)
           `retrieval_solutions`.
   """
     # Compute number of test images.
-    num_test_images = len(retrieval_solution.keys())
+    num_test_images = 0.0000001
 
     # Loop over predictions for each query and compute mAP.
     mean_ap = 0.0
     for key, prediction in predictions.items():
+        if len(retrieval_solution[key]) == 0:
+            continue
         if key not in retrieval_solution:
             raise ValueError('Test image %s is not part of retrieval_solution' % key)
 
@@ -108,6 +110,7 @@ def mean_average_precision(predictions, retrieval_solution, max_predictions=100)
 
         ap /= num_expected_retrieved
         mean_ap += ap
+        num_test_images += 1
 
     mean_ap /= num_test_images
 
@@ -134,9 +137,11 @@ def mean_precisions(predictions, retrieval_solution, max_predictions=100):
     num_test_images = len(retrieval_solution.keys())
 
     # Loop over predictions for each query and compute precisions@k.
-    precisions = np.zeros((num_test_images, max_predictions))
+    precisions = float('nan')*np.ones((num_test_images, max_predictions))
     count_test_images = 0
     for key, prediction in predictions.items():
+        if len(retrieval_solution[key]) == 0:
+            continue
         if key not in retrieval_solution:
             raise ValueError('Test image %s is not part of retrieval_solution' % key)
 
@@ -153,7 +158,7 @@ def mean_precisions(predictions, retrieval_solution, max_predictions=100):
             precisions[count_test_images, i] = num_correct / (i + 1)
         count_test_images += 1
 
-    mean_precisions = np.mean(precisions, axis=0)
+    mean_precisions = np.nanmean(precisions, axis=0)
 
     return mean_precisions
 
@@ -181,6 +186,8 @@ def mean_median_position(predictions, retrieval_solution, max_predictions=100):
     positions = (max_predictions + 1) * np.ones((num_test_images))
     count_test_images = 0
     for key, prediction in predictions.items():
+        if len(retrieval_solution[key]) == 0:
+            continue
         if key not in retrieval_solution:
             raise ValueError('Test image %s is not part of retrieval_solution' % key)
 
@@ -191,8 +198,8 @@ def mean_median_position(predictions, retrieval_solution, max_predictions=100):
 
         count_test_images += 1
 
-    mean_position = np.mean(positions)
-    median_position = np.median(positions)
+    mean_position = np.nanmean(positions)
+    median_position = np.nanmedian(positions)
 
     return mean_position, median_position
 

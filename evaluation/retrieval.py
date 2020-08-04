@@ -75,6 +75,7 @@ def get_retrieval_results(query_embeddings, db_embeddings, query_labels, db_labe
         # ======================== binary embedding evaluation =========================================================
         binary_query_embeddings = np.packbits(np.require(query_embeddings > 0, dtype='uint8'), axis=1)
         binary_db_embeddings = np.packbits(np.require(db_embeddings > 0, dtype='uint8'), axis=1)
+        del query_embeddings, db_embeddings
 
         # knn retrieval from embeddings (binary embeddings, hamming distance)
         retrieved_result_indices = _retrieve_knn_faiss_gpu_binary(binary_query_embeddings,
