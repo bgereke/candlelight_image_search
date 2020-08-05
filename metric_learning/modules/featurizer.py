@@ -1,6 +1,7 @@
 import pretrainedmodels
 import torch.nn as nn
 import torch.hub as hub
+from torch.cuda.amp import autocast
 from torch.utils.checkpoint import checkpoint_sequential
 
 
@@ -24,6 +25,7 @@ class EmbeddedFeatureWrapper(nn.Module):
         if input_dim != output_dim:
             self.remap = nn.Linear(input_dim, output_dim, bias=False)
 
+    @autocast()
     def forward(self, images):
         # x = checkpoint_sequential(self.feature, self.chunks, images)
         x = self.feature(images)

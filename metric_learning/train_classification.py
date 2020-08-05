@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
+from torch.cuda.amp import GradScaler
 
 from data.inshop import InShop
 from data.stanford_products import StanfordOnlineProducts
@@ -186,6 +187,7 @@ def main(args):
     opt = torch.optim.SGD(list(loss_fn.parameters()) + list(set(model.parameters()) -
                                                             set(model.feature.parameters())),
                           lr=args.lr * args.lr_mult, momentum=0.9, weight_decay=1e-4)
+    scaler = GradScaler()
 
     log_every_n_step = 10
     for epoch in range(args.pretrain_epochs):
@@ -201,10 +203,11 @@ def main(args):
             loss = loss_fn(embedding, instance_label)
             writer.add_scalar('loss', loss, epoch)
             back = time.time()
-            loss.backward()
-            opt.step()
+            scaler.scale(loss).backward()
+            scaler.step(opt)
 
             end = time.time()
+            scaler.update()
 
             if (i + 1) % log_every_n_step == 0:
                 print(('Pretrain Epoch {}, LR {}, Iteration {} / {}:\t{}'.format(
@@ -263,10 +266,11 @@ def main(args):
             loss = loss_fn(embedding, instance_label)
             writer.add_scalar('loss', loss, epoch + args.pretrain_epochs)
             back = time.time()
-            loss.backward()
-            opt.step()
+            scaler.scale(loss).backward()
+            scaler.step(opt)
 
             end = time.time()
+            scaler.update()
 
             if (i + 1) % log_every_n_step == 0:
                 print(('Epoch {}, LR {}, Iteration {} / {}:\t{}'.format(
