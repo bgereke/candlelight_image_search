@@ -1,0 +1,21 @@
+{
+  "name": "candlelight",
+  "description": "A Vue.js web extension",
+  "version": "1.0",
+  "manifest_version": 2,
+  "permissions": [
+    "activeTab"
+  ],
+  "icons": {
+    "48": "icons/candle_48.png",
+    "128": "icons/candle_128.png"
+  },
+  "browser_action": {
+    "default_title": "candlelight"
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  }
+}
