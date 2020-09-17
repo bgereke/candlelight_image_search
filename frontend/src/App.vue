@@ -1,38 +1,38 @@
 <template>
   <div id="page">
     <div id="crop-search">
-        <Cropper ref="cropper" id="image-to-crop" :src="image" :wheelResize="false"/>
+        <Cropper ref="cropper" id="image-to-crop" :src="background_image" :wheelResize="false"/>
         <div class="button-wrapper">
           <span id="load-button" class="button" @click="$refs.file.click()">
               <input type="file" ref="file" @change="uploadImage($event)" accept="image/*">
               Upload
           </span>
-          <span id="google-button" class="button" @click="candlelight">
+          <span id="google-button" class="button" @click="google_callback">
             <img src="./icons/google.png" height="40px"/>
           </span>
-          <span id="bing-button" class="button" @click="candlelight">
+          <span id="bing-button" class="button" @click="candlelight_callback">
             <img src="./icons/bing.png" height="50px"/>
           </span>
-          <span id="candle-button" class="button" @click="candlelight">
+          <span id="candle-button" class="button" @click="candlelight_callback">
             <img src="./icons/candle.png" height="40px"/>
           </span>
         </div>
     </div>
 
     <v-app >
-      <div v-infinite-scroll="searchAllImages" infinite-scroll-distance="10" infinite-scroll-disabled=inf_scroll_disabled>
+      <div v-infinite-scroll="load_more" infinite-scroll-distance="10" infinite-scroll-disabled=inf_scroll_disabled>
         <v-container fluid>
           <masonry :gutter="5" :cols="{default: 6, 1000: 4, 700: 3, 400: 2}">
               <v-card 
               id="card"
               outlined 
               :hover="true" 
-              :href="item.pageURL" 
-              target="_blank" 
-              v-for="(item, index) in images" :key="index" 
+              v-for="(image, index) in images" :key="index"
+              :href="image.page_url" 
+              target="_blank"                
               class="mt-2 mb-2">
-                <v-img id="card-image" :src="item.largeImageURL"></v-img>
-                <v-card-text class="py-0">{{item.tags}}</v-card-text>
+                <v-img id="card-image" :src="image.src_url"></v-img>
+                <v-card-text class="py-0">{{image.keywords}}</v-card-text>
               </v-card>
           </masonry>
           <h id="stop_loading" v-if="inf_scroll_disabled"> no more results </h>
@@ -43,73 +43,152 @@
 </template>
 
 <script>
-import { requestsMixin } from "./mixins/requestsMixin";
 import {Cropper} from 'vue-advanced-cropper';
-const background = chrome.extension.getBackgroundPage()
+const axios = require("axios");
+const APIURL = "https://pixabay.com/api";
+const background = chrome.extension.getBackgroundPage();
 
 export default {
-  mixins: [requestsMixin],
   components: {
     Cropper
     },
   data() {
     return {
       form: {},
-      page: 1,
-      page_limit: 10,
+      loads: 1,
+      load_limit: 5,
       containerId: null,
       images: [],
       append_cnt: 0,
-      image:
+      background_image:
         background.screenshotUrl,
-      num_results: 20,
+      num_candlelight_results: 20,
+      max_google_results: 50,
       inf_scroll_disabled: false,
-      searched: false
+      searched: false,
+      service: '',
+      token: ''
     };
   },
 
   methods: {
 
-    async candlelight() {
-    //   const isValid = await this.$refs.observer.validate();
-    //   if (!isValid) {
-    //     return;
-    //   }
+    async candlelight_callback() {
+      this.images = [];
+      this.service = 'candlelight';
       this.inf_scroll_disabled = false;
-      this.page = 1;
+      this.loads = 1;      
       if (this.searched){
         this.form.keyword = 'cat';
       } else {
         this.form.keyword = 'dog';
         this.searched = true;
-      }
-      
-      await this.searchAllImages();
+      }      
+      await this.search_candlelight();
     },
 
-    async loadMore() {
+    async google_callback() {
+      this.images = [];
+      this.service = 'google';
       this.inf_scroll_disabled = false;
-      await this.searchAllImages();
-      this.inf_scroll_disabled = true;
+      this.loads = 1;          
+      this.search_google();
     },
 
-    async searchAllImages() {
+    async load_more() {
+      if (this.service == 'candlelight') {
+        await this.search_candlelight();
+      } else if (this.service == 'google') {
+        await this.search_google();
+      }
+    },
+
+    async search_candlelight() {
       if (!this.form.keyword) {
         return;
       }
-      const response = await this.searchImages(this.form.keyword, this.page);
-      if (this.page == 1) {
-        this.images = response.data.hits;
-      } else {
-        this.images = this.images.concat(response.data.hits);
-        console.log(this.images);
-      }
-      this.page++;
-      if (this.page == this.page_limit){
+      const response = await this.searchImages(this.form.keyword, this.loads);
+      for (var i = 0; i < this.num_candlelight_results; i++){
+        this.images.push({
+          page_url: response.data.hits[i].pageURL,
+          src_url: response.data.hits[i].largeImageURL,
+          keywords: response.data.hits[i].tags
+        });         
+      }   
+      this.loads++;
+      if (this.loads == this.load_limit){
         this.inf_scroll_disabled = true;
       }
     },
-    
+
+    searchImages(keyword, page = 1) {
+      return axios.get(
+        `${APIURL}/?page=${page}&key=18137162-8bce742258e73e6063f58d40a&q=${keyword}`
+      );
+    },
+
+    async search_google() {
+      const cropped = this.$refs.cropper.getResult();        
+      chrome.identity.getAuthToken({interactive: false}, function(token) {
+        const background = chrome.extension.getBackgroundPage();
+        background.token = token;
+        }); 
+      this.token = background.token;
+      background.token = '';
+      var b64_image = cropped.canvas.toDataURL('image/png').replace(/^data:image\/(png|jpg);base64,/, '');
+      var request_body = {
+        requests: [{
+          image: {content: b64_image},
+          features: [{
+            type: 'WEB_DETECTION',
+            maxResults: this.num_google_results
+          }]
+        }]
+      };
+      let request = {
+        method: 'POST',
+        async: true,
+        headers: {
+          Authorization: 'Bearer ' + this.token,
+          'Content-Type': 'application/json'
+        },
+        contentType: 'json',
+        body: JSON.stringify(request_body)
+      };
+      fetch(
+        'https://vision.googleapis.com/v1/images:annotate?key=' + process.env.GOOGLE_KEY,
+        request)
+        .then(response => response.json())
+        .then(data => {
+          var response = data.responses[0].webDetection.visuallySimilarImages;  
+          for (var i = 0; i < response.length; i++){
+            this.images.push({
+              page_url: response[i].url,
+              src_url: response[i].url,
+              keywords: ''
+            });         
+          }           
+          this.inf_scroll_disabled = true;
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+        });              
+              
+      //   axios({
+      //     method: 'post',
+      //     url: google_url,
+      //     data: request_data
+      //   })
+      //   .then((response) => {
+      //     console.log('response');
+      //     console.log(response);
+      //   }, (error) => {
+      //     console.log('error');
+      //     console.log(error);
+      //   }); 
+      // }, 'image/jpeg');       
+    },
+
     uploadImage(event) {
       // Reference to the DOM input element
 			var input = event.target;
@@ -121,7 +200,7 @@ export default {
 				reader.onload = (e) => {
 					// Note: arrow function used here, so that "this.imageData" refers to the imageData of Vue component
 					// Read image as base64 and set to imageData
-					this.image = e.target.result;
+					this.background_image = e.target.result;
 				};
 				// Start the reader job - read file as a data url (base64 format)
         reader.readAsDataURL(input.files[0]);

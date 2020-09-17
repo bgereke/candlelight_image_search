@@ -4,7 +4,8 @@
   "version": "1.0",
   "manifest_version": 2,
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "identity"
   ],
   "icons": {
     "48": "icons/candle_48.png",
@@ -17,5 +18,12 @@
     "scripts": [
       "background.js"
     ]
-  }
+  },
+  "oauth2": {
+    "client_id": "316106815506-dbk6jlt80jlh0iotd2enoa127it3fj5a.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/cloud-vision"
+    ]
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmYSMeBj8BiR2ZHsjd9a7jfwUCAtk4KQoeAF4BA3d1anQ6C1iehLoUwyNWbHHUFZ5Co6i8c4YF85FAnIs7RWylo1MUbJzKa98PemU66UY/lfVG+o5zp6L2lRhM3QMhB7BPZEFKBLPnacz95oEYHF1FFeipQkEUPiQg+W/6fp3z43+eR1aJqKwVM7/vf7ROIVSQVvwX1zyqnEiw9jW3jphxoKID+9eMC//+xo3Ys42otcIK6DLwcWTxeK9qsHxhpNtfdyLqdf/f05/pAmdnTvj/JKyIlSNlF1G12e4tya2pRE58UsyLR1vg3wrPcMRGhQH8g52GWA3uZZwALR6XAFeGwIDAQAB"
 }

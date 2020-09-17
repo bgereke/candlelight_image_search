@@ -37,111 +37,111 @@ export default {
     cropSearch() {
       this.searched = true;
       const cropped = this.$refs.cropper.getResult();
-			// if (cropped) {
-			// 	const request_form = new FormData();
-			// 	cropped.canvas.toBlob(blob => {
-      //     request_form.append('query_image', blob);
-      //     request_form.append('k', this.num_results);
-      //     var start = Date.now();
-      //     axios({
-      //       method: 'post',
-      //       url: 'http://localhost:8000/candlelight/',
-      //       data: request_form,
-      //       headers: {'Content-Type': 'multipart/form-data',
-      //                 'Accept': 'image/jpeg' },
-      //       responseType: 'arraybuffer'
-      //     })
-      //     .then((response) => {
-      //       console.log(Date.now() - start)
-      //       var responseBlob = new Blob([response.data], {type:"image/jpeg"});
-      //       const newTab = window.open();
-      //       newTab.document.body.innerHTML = `<h2>Query:</h2>
-      //       <img src="${
-      //         URL.createObjectURL(responseBlob)
-      //         }" height="200px">
-      //       <h2>Results:</h2>
-      //           <img src="${
-      //         URL.createObjectURL(responseBlob)
-      //         }" height="200px">`
-      //     }, (error) => {
-      //       console.log(error);
-      //     });
-			// 	}, 'image/jpeg');
-      // }      
-      
-      // var imagesLoaded = require('imagesloaded');
-      var msnry = new Masonry( '.grid', {
-        itemSelector: '.photo-item',
-        columnWidth: '.grid__col-sizer',
-        gutter: '.grid__gutter-sizer',
-        percentPosition: true,
-        stagger: 30,
-        // nicer reveal transition
-        visibleStyle: { transform: 'translateY(0)', opacity: 1 },
-        hiddenStyle: { transform: 'translateY(100px)', opacity: 0 },
-      });
-
-      //------------------//
-
-      // Get an API key for your demos at https://unsplash.com/developers
-      var unsplashID = '9ad80b14098bcead9c7de952435e937cc3723ae61084ba8e729adb642daf0251';
-
-      var infScroll = new InfiniteScroll( '.grid', {
-        path: function() {
-          return 'https://api.unsplash.com/photos?client_id='
-            + unsplashID + '&page=' + this.pageIndex;
-        },
-        // load response as flat text
-        responseType: 'text',
-        outlayer: msnry,
-        status: '.page-load-status',
-        history: false,
-      });
-
-      // use element to turn HTML string into elements
-      var proxyElem = document.createElement('div');
-
-      infScroll.on( 'load', function( response ) {
-        // parse response into JSON data
-        var data = JSON.parse( response );
-        // compile data into HTML
-        var itemsHTML = data.map( getItemHTML ).join('');
-        // convert HTML string into elements
-        proxyElem.innerHTML = itemsHTML;
-        // append item elements
-        var items = proxyElem.querySelectorAll('.photo-item');
-        imagesLoaded( items, function() {
-          infScroll.appendItems( items );
-          msnry.appended( items );
-        });
-        window.setTimeout(function() {
-          msnry.layout();
-          }, 1000);
-      });
-
-      // load initial page
-      infScroll.loadNextPage();
-
-      //------------------//
-
-      var itemTemplateSrc = document.querySelector('#photo-item-template').innerHTML;
-
-      function getItemHTML( photo ) {
-        return microTemplate( itemTemplateSrc, photo );
-      }
-
-      // micro templating, sort-of
-      function microTemplate( src, data ) {
-        // replace {{tags}} in source
-        return src.replace( /\{([\w\-_\.]+)\}/gi, function( match, key ) {
-          // walk through objects to get value
-          var value = data;
-          key.split('.').forEach( function( part ) {
-            value = value[ part ];
+			if (cropped) {
+				const request_form = new FormData();
+				cropped.canvas.toBlob(blob => {
+          request_form.append('query_image', blob);
+          request_form.append('k', this.num_results);
+          var start = Date.now();
+          axios({
+            method: 'post',
+            url: 'http://localhost:8000/candlelight/',
+            data: request_form,
+            headers: {'Content-Type': 'multipart/form-data',
+                      'Accept': 'image/jpeg' },
+            responseType: 'arraybuffer'
+          })
+          .then((response) => {
+            console.log(Date.now() - start)
+            var responseBlob = new Blob([response.data], {type:"image/jpeg"});
+            const newTab = window.open();
+            newTab.document.body.innerHTML = `<h2>Query:</h2>
+            <img src="${
+              URL.createObjectURL(responseBlob)
+              }" height="200px">
+            <h2>Results:</h2>
+                <img src="${
+              URL.createObjectURL(responseBlob)
+              }" height="200px">`
+          }, (error) => {
+            console.log(error);
           });
-          return value;
-        });
-      }
+				}, 'image/jpeg');
+      }      
+      
+      // // var imagesLoaded = require('imagesloaded');
+      // var msnry = new Masonry( '.grid', {
+      //   itemSelector: '.photo-item',
+      //   columnWidth: '.grid__col-sizer',
+      //   gutter: '.grid__gutter-sizer',
+      //   percentPosition: true,
+      //   stagger: 30,
+      //   // nicer reveal transition
+      //   visibleStyle: { transform: 'translateY(0)', opacity: 1 },
+      //   hiddenStyle: { transform: 'translateY(100px)', opacity: 0 },
+      // });
+
+      // //------------------//
+
+      // // Get an API key for your demos at https://unsplash.com/developers
+      // var unsplashID = '9ad80b14098bcead9c7de952435e937cc3723ae61084ba8e729adb642daf0251';
+
+      // var infScroll = new InfiniteScroll( '.grid', {
+      //   path: function() {
+      //     return 'https://api.unsplash.com/photos?client_id='
+      //       + unsplashID + '&page=' + this.pageIndex;
+      //   },
+      //   // load response as flat text
+      //   responseType: 'text',
+      //   outlayer: msnry,
+      //   status: '.page-load-status',
+      //   history: false,
+      // });
+
+      // // use element to turn HTML string into elements
+      // var proxyElem = document.createElement('div');
+
+      // infScroll.on( 'load', function( response ) {
+      //   // parse response into JSON data
+      //   var data = JSON.parse( response );
+      //   // compile data into HTML
+      //   var itemsHTML = data.map( getItemHTML ).join('');
+      //   // convert HTML string into elements
+      //   proxyElem.innerHTML = itemsHTML;
+      //   // append item elements
+      //   var items = proxyElem.querySelectorAll('.photo-item');
+      //   imagesLoaded( items, function() {
+      //     infScroll.appendItems( items );
+      //     msnry.appended( items );
+      //   });
+      //   window.setTimeout(function() {
+      //     msnry.layout();
+      //     }, 1000);
+      // });
+
+      // // load initial page
+      // infScroll.loadNextPage();
+
+      // //------------------//
+
+      // var itemTemplateSrc = document.querySelector('#photo-item-template').innerHTML;
+
+      // function getItemHTML( photo ) {
+      //   return microTemplate( itemTemplateSrc, photo );
+      // }
+
+      // // micro templating, sort-of
+      // function microTemplate( src, data ) {
+      //   // replace {{tags}} in source
+      //   return src.replace( /\{([\w\-_\.]+)\}/gi, function( match, key ) {
+      //     // walk through objects to get value
+      //     var value = data;
+      //     key.split('.').forEach( function( part ) {
+      //       value = value[ part ];
+      //     });
+      //     return value;
+      //   });
+      // }
     },
     uploadImage(event) {
       // Reference to the DOM input element

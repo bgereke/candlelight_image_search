@@ -38,6 +38,7 @@
     "cross-env": "^5.2.0",
     "css-loader": "^3.4.0",
     "deepmerge": "^4.2.2",
+    "dotenv-webpack": "^2.0.0",
     "ejs": "^2.6.1",
     "fibers": "^5.0.0",
     "file-loader": "^5.0.2",
