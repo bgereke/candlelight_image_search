@@ -1,6 +1,4 @@
-# candlelight_image_search
-
-<img src="frontend/src/icons/candle.png" alt="candlelight logo" width="200px">
+# <img src="frontend/src/icons/candle.png" alt="candlelight logo" width="100px"> candlelight image search
 
 Another chrome extension for reverse image search
 
