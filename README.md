@@ -1,5 +1,5 @@
 # candlelight_image_search
-A browser extension for Pinterest's flashlight image search feature
+Another chrome extension for reverse image search
 
-frontend - a Vue.js chrome extension that allows the user to crop images captured from the browser or upoaded locally. Image search can be performed by Google, Bing, or Candlelight. Results are displayed as an infinitely scrollable masonry.   
+frontend - a Vue.js chrome extension that provides functionality to crop screen captured, or uploaded, images in the browser and perfrom reverse image search similarly to Pinterest's "flashlight" search feature. Search can be performed with Google Cloud Vision, Bing Visual Search, or Candlelight (coming soon).   
 
